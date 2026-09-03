@@ -52,3 +52,37 @@ body {
 :focus-visible {
   @apply outline-2 outline-offset-2 outline-brand-500;
 }
+
+/*
+ * The splash bar. An indeterminate sweep rather than a progress bar, because we
+ * cannot know how long the session check will take and a fake percentage is a
+ * lie told in an animation.
+ */
+@keyframes splash {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* Respect the system setting. Vestibular triggers are not a style preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * A keyboard user's first Tab should be able to skip the nav rather than walk
+ * it on every page. Hidden until focused.
+ */
+.skip-link {
+  @apply sr-only;
+}
+
+.skip-link:focus-visible {
+  @apply not-sr-only fixed top-3 left-3 z-50 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white;
+}

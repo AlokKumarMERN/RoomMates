@@ -26,7 +26,10 @@ const amountRowSchema = new mongoose.Schema(
 
 const expenseSchema = new mongoose.Schema(
   {
-    room: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', required: true, index: true },
+    // No `index: true` here: every compound index below starts with `room`, and
+    // Mongo uses a compound index's prefix. A standalone one would be a second
+    // structure to write on every insert, serving queries the others already do.
+    room: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', required: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
     // Integer paise. Never rupees. See utils/money.js.
@@ -121,18 +124,53 @@ const expenseSchema = new mongoose.Schema(
   },
 );
 
-// The room expense list — "this room, not deleted, newest first" — is the
-// single hottest query in the app, and every dashboard figure is a scan of the
-// same range. The compound index covers the filter and the sort together.
-expenseSchema.index({ room: 1, isDeleted: 1, date: -1 });
+/**
+ * The room expense list — "this room, not deleted, newest first" — is the
+ * single hottest query in the app. The compound index covers the filter and the
+ * sort together.
+ *
+ * `createdAt` is in here because it is the sort's TIEBREAKER, not decoration.
+ * Two expenses dated the same day need a stable order, so the list sorts by
+ * `{date, createdAt}` — and an index that stops at `date` can satisfy the
+ * filter but not that second key, which sends the whole matching set through an
+ * in-memory sort. With 1,000 expenses `.explain()` showed 961 documents
+ * examined to return 20; with `createdAt` appended it is 20. Past 32MB of
+ * matches Mongo stops sorting in memory and fails the query outright, so this
+ * is a correctness cliff and not only a speed one.
+ *
+ * One index serves both directions: Mongo walks a descending index backwards
+ * for `{date: 1, createdAt: 1}`.
+ */
+expenseSchema.index({ room: 1, isDeleted: 1, date: -1, createdAt: -1 });
 
-// Supports "what did I pay for?" and the per-member drill-downs, without
-// scanning the room's whole history.
+// "Expenses involving this person" is an $or over both sides of the
+// transaction, and an $or is only as fast as its slowest branch — so both
+// branches get an index rather than just the one.
 expenseSchema.index({ room: 1, 'paidBy.user': 1, date: -1 });
+expenseSchema.index({ room: 1, 'shares.user': 1, date: -1 });
 
-// Phase 9's search box. Declared with the schema so the index exists well
-// before anything queries it.
-expenseSchema.index({ description: 'text', notes: 'text' });
+// Sorting by amount is one of the four orders the history page offers. Without
+// this, "largest first" filters on the date index and then sorts in memory,
+// which Mongo refuses outright past 32MB. Serves both directions.
+expenseSchema.index({ room: 1, isDeleted: 1, amount: -1 });
+
+/**
+ * There is deliberately NO text index.
+ *
+ * A `$text` search matches whole stemmed words, so typing "din" finds nothing
+ * and "dinner" finds everything — which is unusable behind a box that searches
+ * as you type. The history page uses a case-insensitive regex instead, run
+ * inside the room filter above: the compound index narrows to one room's
+ * expenses first, and the scan happens across those rather than the collection.
+ * An index that nothing queries is not free — it costs a write on every
+ * expense — so it is gone rather than left behind a comment promising it will
+ * be used later.
+ *
+ * NOTE FOR ANY EXISTING DATABASE: removing an index from a schema does not drop
+ * it from Mongo. A database created before this change still carries
+ * `description_text_notes_text` and needs
+ * `db.expenses.dropIndex('description_text_notes_text')` once, by hand.
+ */
 
 /** Total paid by one member on this expense (0 if they did not pay). */
 expenseSchema.methods.paidByUser = function paidByUser(userId) {

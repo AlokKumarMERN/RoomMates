@@ -29,3 +29,36 @@ export const detail = asyncHandler(async (req, res) => {
 
   sendSuccess(res, { data: { expense } });
 });
+
+export const update = asyncHandler(async (req, res) => {
+  const expense = await expenseService.updateExpense({
+    expenseId: req.params.expenseId,
+    userId: req.user._id,
+    input: req.body,
+  });
+
+  sendSuccess(res, { data: { expense } });
+});
+
+/**
+ * A soft delete, so this returns the expense rather than 204 — the client
+ * re-renders it as removed, with its history still reachable, instead of
+ * dropping it out of the page as if it had never existed.
+ */
+export const remove = asyncHandler(async (req, res) => {
+  const expense = await expenseService.deleteExpense({
+    expenseId: req.params.expenseId,
+    userId: req.user._id,
+  });
+
+  sendSuccess(res, { data: { expense } });
+});
+
+export const history = asyncHandler(async (req, res) => {
+  const revisions = await expenseService.listRevisions({
+    expenseId: req.params.expenseId,
+    userId: req.user._id,
+  });
+
+  sendSuccess(res, { data: { revisions } });
+});

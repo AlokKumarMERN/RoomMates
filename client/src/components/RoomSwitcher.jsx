@@ -42,7 +42,7 @@ export default function RoomSwitcher() {
         onClick={() => setIsOpen((open) => !open)}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className="flex max-w-[11rem] items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+        className="flex max-w-[7.5rem] items-center gap-2 rounded-lg border border-slate-300 sm:max-w-[11rem] bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
       >
         <span aria-hidden="true">🏠</span>
         <span className="truncate">{activeRoom?.name ?? 'Select room'}</span>

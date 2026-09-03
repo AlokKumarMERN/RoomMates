@@ -62,18 +62,27 @@ const roomSchema = new mongoose.Schema(
 // Finding "every room this user belongs to" is the most frequent room query.
 roomSchema.index({ 'members.user': 1 });
 
+/**
+ * These all tolerate `members` being absent.
+ *
+ * A room can be fetched with a projection — the notification list populates
+ * only `name`, because that is all it needs to say which room something
+ * happened in — and virtuals run on every `toJSON`. Without the fallback, that
+ * projection turns a perfectly good response into a 500 from inside a getter,
+ * which is a long way from where anybody would look for it.
+ */
 roomSchema.virtual('activeMembers').get(function activeMembers() {
-  return this.members.filter((member) => member.isActive);
+  return (this.members ?? []).filter((member) => member.isActive);
 });
 
 roomSchema.virtual('memberCount').get(function memberCount() {
-  return this.members.filter((member) => member.isActive).length;
+  return (this.members ?? []).filter((member) => member.isActive).length;
 });
 
 /** The caller's active membership, or undefined. Handles both populated and raw refs. */
 roomSchema.methods.findMembership = function findMembership(userId) {
   const target = String(userId);
-  return this.members.find((member) => {
+  return (this.members ?? []).find((member) => {
     const memberId = member.user?._id ? String(member.user._id) : String(member.user);
     return memberId === target && member.isActive;
   });

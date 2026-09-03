@@ -12,9 +12,9 @@
  *
  * TWO NUMBERS THAT LOOK ALIKE AND ARE NOT.
  *
- *   balance    = paid − owed.  What this person is actually up or down. This is
- *                the ledger. Settlements are built from it, and across everyone
- *                it always sums to exactly zero.
+ *   balance    = paid − owed + settled.  What this person is actually up or
+ *                down. This is the ledger. Settlements are built from it, and
+ *                across everyone it always sums to exactly zero.
  *
  *   difference = paid − average.  A *spending comparison* for the §11 table:
  *                "you put in ₹100 less than the typical person here". It is a
@@ -66,19 +66,34 @@ export function standing(difference, average) {
  * balance, so keeping a long-departed member in the denominator would skew
  * today's comparison table for no gain.
  *
+ * SETTLEMENTS MOVE THE BALANCE, NOT THE EXPENSES (spec §12). Handing somebody
+ * ₹300 does not change what last month's dinner cost — it changes what is
+ * outstanding between you. So a confirmed settlement is added to the ledger as
+ * a transfer and nothing about any expense is touched: `paid` and `owed` stay
+ * strictly what the expenses say, which is what the charts and the "spending"
+ * figures mean, and `settled` carries the transfers.
+ *
+ * Only CONFIRMED settlements belong here. One that is merely recorded, or that
+ * the payer says they have sent, is a claim; until the person receiving it says
+ * the money arrived, moving the balance would let anyone clear a debt by
+ * asserting they had paid it.
+ *
  * @param {object} input
  * @param {Array<{amount: number, paidBy: Array<{user: *, amount: number}>,
  *                shares: Array<{user: *, amount: number}>}>} input.expenses
  *   Active (non-deleted) expenses only. Soft-deleted rows stay in the
  *   collection for the audit trail and must never reach a total.
  * @param {Array<{user: *, isActive: boolean}>} input.members The room's roster.
+ * @param {Array<{from: *, to: *, amount: number}>} [input.settlements]
+ *   Confirmed settlements only.
  * @returns {{
  *   totals: {total: number, expenseCount: number, memberCount: number, average: number},
  *   members: Array<{user: string, isActive: boolean, paid: number, owed: number,
+ *                   settledOut: number, settledIn: number, settled: number,
  *                   balance: number, difference: number, standing: string}>
  * }}
  */
-export function summarise({ expenses = [], members = [] }) {
+export function summarise({ expenses = [], members = [], settlements = [] }) {
   const ledger = new Map();
 
   const rowFor = (user) => {
@@ -86,7 +101,7 @@ export function summarise({ expenses = [], members = [] }) {
     let row = ledger.get(key);
 
     if (!row) {
-      row = { user: key, isActive: false, paid: 0, owed: 0 };
+      row = { user: key, isActive: false, paid: 0, owed: 0, settledOut: 0, settledIn: 0 };
       ledger.set(key, row);
     }
 
@@ -113,6 +128,14 @@ export function summarise({ expenses = [], members = [] }) {
     }
   }
 
+  // Paying somebody counts for you exactly as putting money in does; being paid
+  // counts against you exactly as owing a share does. That symmetry is why the
+  // ledger still sums to zero once settlements are in it.
+  for (const settlement of settlements) {
+    rowFor(settlement.from).settledOut += settlement.amount;
+    rowFor(settlement.to).settledIn += settlement.amount;
+  }
+
   const memberCount = members.filter((member) => member.isActive).length;
 
   // Integer paise in, integer paise out. The average is the one figure here
@@ -121,11 +144,16 @@ export function summarise({ expenses = [], members = [] }) {
   const average = memberCount > 0 ? Math.round(total / memberCount) : 0;
 
   const rows = [...ledger.values()].map((row) => {
+    // `difference` compares SPENDING, so it deliberately ignores settlements:
+    // paying somebody back is not spending, and counting it here would tell
+    // someone who settled up that they now spend below average.
     const difference = row.paid - average;
+    const settled = row.settledOut - row.settledIn;
 
     return {
       ...row,
-      balance: row.paid - row.owed,
+      settled,
+      balance: row.paid - row.owed + settled,
       difference,
       standing: standing(difference, average),
     };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { allocate } from './split.js';
+import { settleUp } from './settlement.js';
 import { standing, summarise } from './balance.js';
 
 /**
@@ -220,5 +221,131 @@ describe('standing', () => {
 
   it('treats an empty room as settled rather than dividing by zero', () => {
     expect(standing(0, 0)).toBe('near');
+  });
+});
+
+describe('summarise — confirmed settlements', () => {
+  /** The plan §3.1 room: Alok −₹100, Rahul −₹300, Aman +₹100, Rohit +₹300. */
+  const room = () => specExample();
+
+  it('leaves the expenses alone (spec §12)', () => {
+    // Paying somebody back does not change what the dinner cost.
+    const summary = summarise({
+      ...room(),
+      settlements: [{ from: 'rahul', to: 'rohit', amount: 30000 }],
+    });
+
+    expect(summary.totals.total).toBe(200000);
+    expect(rowFor(summary, 'rahul').paid).toBe(20000);
+    expect(rowFor(summary, 'rahul').owed).toBe(50000);
+    expect(rowFor(summary, 'rohit').paid).toBe(80000);
+  });
+
+  it('moves the balance instead', () => {
+    const summary = summarise({
+      ...room(),
+      settlements: [{ from: 'rahul', to: 'rohit', amount: 30000 }],
+    });
+
+    expect(rowFor(summary, 'rahul').balance).toBe(0);
+    expect(rowFor(summary, 'rohit').balance).toBe(0);
+    // The pair who did not settle are untouched.
+    expect(rowFor(summary, 'alok').balance).toBe(-10000);
+    expect(rowFor(summary, 'aman').balance).toBe(10000);
+  });
+
+  it('reports what was paid out and taken in', () => {
+    const summary = summarise({
+      ...room(),
+      settlements: [{ from: 'rahul', to: 'rohit', amount: 30000 }],
+    });
+
+    expect(rowFor(summary, 'rahul')).toMatchObject({
+      settledOut: 30000,
+      settledIn: 0,
+      settled: 30000,
+    });
+    expect(rowFor(summary, 'rohit')).toMatchObject({
+      settledOut: 0,
+      settledIn: 30000,
+      settled: -30000,
+    });
+  });
+
+  it('settles the whole room when every suggestion is paid', () => {
+    const summary = summarise({
+      ...room(),
+      settlements: [
+        { from: 'rahul', to: 'rohit', amount: 30000 },
+        { from: 'alok', to: 'aman', amount: 10000 },
+      ],
+    });
+
+    expect(summary.members.every((member) => member.balance === 0)).toBe(true);
+    expect(settleUp(summary.members)).toEqual([]);
+  });
+
+  it('handles a partial payment', () => {
+    const summary = summarise({
+      ...room(),
+      settlements: [{ from: 'rahul', to: 'rohit', amount: 10000 }],
+    });
+
+    expect(rowFor(summary, 'rahul').balance).toBe(-20000);
+    expect(rowFor(summary, 'rohit').balance).toBe(20000);
+  });
+
+  it('adds up several settlements for the same person', () => {
+    const summary = summarise({
+      ...room(),
+      settlements: [
+        { from: 'rahul', to: 'rohit', amount: 10000 },
+        { from: 'rahul', to: 'rohit', amount: 20000 },
+      ],
+    });
+
+    expect(rowFor(summary, 'rahul').settledOut).toBe(30000);
+    expect(rowFor(summary, 'rahul').balance).toBe(0);
+  });
+
+  it('leaves the spending comparison alone', () => {
+    // Settling up is not spending. Counting it would tell someone who paid
+    // their debt that they now spend below average.
+    const settled = summarise({
+      ...room(),
+      settlements: [{ from: 'rahul', to: 'rohit', amount: 30000 }],
+    });
+
+    expect(rowFor(settled, 'rahul').difference).toBe(-30000);
+    expect(rowFor(settled, 'rohit').difference).toBe(30000);
+  });
+
+  it('still sums to zero, whatever the settlements', () => {
+    for (let run = 0; run < 500; run += 1) {
+      const people = ['alok', 'rahul', 'aman', 'rohit'];
+      const settlements = Array.from({ length: Math.floor(Math.random() * 6) }, () => {
+        const [from, to] = [...people].sort(() => Math.random() - 0.5);
+        return { from, to, amount: 1 + Math.floor(Math.random() * 100000) };
+      });
+
+      const summary = summarise({ ...room(), settlements });
+
+      expect(summary.members.reduce((sum, member) => sum + member.balance, 0)).toBe(0);
+      // And whatever state they are in, a settlement plan still closes them out.
+      expect(settleUp(summary.members).length).toBeLessThanOrEqual(people.length - 1);
+    }
+  });
+
+  it('gives a settlement-only participant a row', () => {
+    // Somebody who was in no expense but received a payment is still on the
+    // ledger — dropping them would lose the money.
+    const summary = summarise({
+      members: roster('alok', 'rahul'),
+      expenses: [],
+      settlements: [{ from: 'alok', to: 'rahul', amount: 5000 }],
+    });
+
+    expect(rowFor(summary, 'alok').balance).toBe(5000);
+    expect(rowFor(summary, 'rahul').balance).toBe(-5000);
   });
 });

@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import useAuth from '../hooks/useAuth.js';
-import Spinner from './ui/Spinner.jsx';
+import Splash from './Splash.jsx';
 
 /**
  * Gate for authenticated routes.
@@ -17,11 +17,7 @@ export default function ProtectedRoute() {
   // Wait for the session check. Redirecting first would bounce a signed-in user
   // to /login for a frame on every refresh.
   if (isRestoring) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Spinner className="size-8 text-brand-500" />
-      </div>
-    );
+    return <Splash />;
   }
 
   if (!isAuthenticated) {

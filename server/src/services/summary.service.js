@@ -3,6 +3,7 @@ import { dateRangeFilter } from '../utils/dates.js';
 import { summarise } from './calculation/balance.js';
 import { byCategory, byDay } from './calculation/breakdown.js';
 import { settleUp, settlementsFor } from './calculation/settlement.js';
+import { confirmedTransfers } from './settlement.service.js';
 
 /**
  * The room summary: one query, one pass through the calculation engine, and the
@@ -61,12 +62,20 @@ export async function getRoomSummary({ room, userId, query = {} }) {
   // Only the fields the engine reads. A room with years of history should not
   // drag its descriptions, notes and receipt links across the wire to produce a
   // handful of numbers.
-  const expenses = await Expense.find(filter)
-    .select('amount category date paidBy shares')
-    .lean();
+  const [expenses, settlements] = await Promise.all([
+    Expense.find(filter).select('amount category date paidBy shares').lean(),
+
+    // Confirmed settlements only, and deliberately NOT filtered by the date
+    // window. The window scopes what was *spent* in a period; the balance is
+    // always the balance as it stands now, and a payment made last week would
+    // otherwise vanish from a report on last month and resurrect a debt that
+    // has been paid.
+    confirmedTransfers(room._id),
+  ]);
 
   const { totals, members } = summarise({
     expenses,
+    settlements,
     members: room.members.map((member) => ({
       user: member.user,
       isActive: member.isActive,
@@ -120,6 +129,7 @@ export async function getRoomSummary({ room, userId, query = {} }) {
     you: {
       paid: myRow?.paid ?? 0,
       owed: myRow?.owed ?? 0,
+      settled: myRow?.settled ?? 0,
       balance: myRow?.balance ?? 0,
       difference: myRow?.difference ?? 0,
       owes: mine.owes.map(hydrate),

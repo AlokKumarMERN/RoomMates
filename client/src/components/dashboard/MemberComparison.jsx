@@ -22,8 +22,16 @@ import { formatINR, formatSignedINR } from '../../utils/money.js';
  * fine on a headline card that nobody subtracts; it is not fine in a column
  * that invites the arithmetic.
  *
- * On a narrow screen the two middle columns drop out. Balance is what the
- * reader came for and it must never be the column that falls off the edge.
+ * A "Settled" column appears only once somebody has actually settled up. Until
+ * then it would be a column of zeros — and with it, the row still reads as
+ * arithmetic the reader can check: paid − share + settled = balance.
+ *
+ * ON A PHONE IT IS NOT A TABLE (spec §22). Five columns of currency at 360px is
+ * either a horizontal scroll nobody discovers or a set of columns dropped to
+ * make room — and the dropped ones are exactly the figures that make the
+ * balance checkable. So below `sm` the same rows render as cards: name and
+ * balance on the top line, the workings underneath as labelled pairs. Same
+ * numbers, same order, laid out for the screen rather than squeezed onto it.
  */
 
 const STANDING_LABEL = {
@@ -84,8 +92,71 @@ function BalanceCell({ balance }) {
   );
 }
 
+/** One member as a card. The phone layout — see the note at the top. */
+function MemberCard({ row, currentUserId, hasSettlements }) {
+  const name =
+    row.user.id === currentUserId ? 'You' : (row.user.name ?? 'Former member');
+
+  return (
+    <li className="px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-700"
+            aria-hidden="true"
+          >
+            {row.user.name?.[0]?.toUpperCase() ?? '?'}
+          </span>
+          <span className="truncate font-medium text-slate-900">{name}</span>
+          {!row.isActive && (
+            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-slate-500 uppercase">
+              Left
+            </span>
+          )}
+        </div>
+        <BalanceCell balance={row.balance} />
+      </div>
+
+      <dl className="mt-2.5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-2.5 text-xs">
+        <div>
+          <dt className="text-slate-500">Paid</dt>
+          <dd className="tabular mt-0.5 text-slate-900">{formatINR(row.paid)}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Their share</dt>
+          <dd className="tabular mt-0.5 text-slate-600">{formatINR(row.owed)}</dd>
+        </div>
+        {hasSettlements ? (
+          <div>
+            <dt className="text-slate-500">Settled</dt>
+            <dd className="tabular mt-0.5 text-slate-600">
+              {row.settled ? formatSignedINR(row.settled) : '—'}
+            </dd>
+          </div>
+        ) : (
+          <div>
+            <dt className="text-slate-500">vs average</dt>
+            <dd className="tabular mt-0.5 text-slate-600">
+              {row.standing === 'near' ? '—' : formatSignedINR(row.difference)}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {hasSettlements && (
+        <p className="tabular mt-1.5 text-xs text-slate-500">
+          vs average {row.standing === 'near' ? '—' : formatSignedINR(row.difference)}
+        </p>
+      )}
+
+      <span className="sr-only">{STANDING_LABEL[row.standing]}</span>
+    </li>
+  );
+}
+
 export default function MemberComparison({ members, currentUserId }) {
   const scale = Math.max(...members.map((row) => Math.abs(row.difference)), 0);
+  const hasSettlements = members.some((row) => row.settled);
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -96,7 +167,20 @@ export default function MemberComparison({ members, currentUserId }) {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Phone: cards. */}
+      <ul className="divide-y divide-slate-100 sm:hidden">
+        {members.map((row) => (
+          <MemberCard
+            key={row.user.id}
+            row={row}
+            currentUserId={currentUserId}
+            hasSettlements={hasSettlements}
+          />
+        ))}
+      </ul>
+
+      {/* Tablet and up: the table. */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left">
@@ -105,6 +189,11 @@ export default function MemberComparison({ members, currentUserId }) {
               <th className="hidden px-5 py-2.5 text-right font-medium text-slate-500 md:table-cell">
                 Their share
               </th>
+              {hasSettlements && (
+                <th className="hidden px-5 py-2.5 text-right font-medium text-slate-500 md:table-cell">
+                  Settled
+                </th>
+              )}
               <th className="hidden px-5 py-2.5 font-medium text-slate-500 sm:table-cell">
                 vs average
               </th>
@@ -141,6 +230,11 @@ export default function MemberComparison({ members, currentUserId }) {
                 <td className="tabular hidden px-5 py-3 text-right text-slate-600 md:table-cell">
                   {formatINR(row.owed)}
                 </td>
+                {hasSettlements && (
+                  <td className="tabular hidden px-5 py-3 text-right whitespace-nowrap text-slate-600 md:table-cell">
+                    {row.settled ? formatSignedINR(row.settled) : '—'}
+                  </td>
+                )}
 
                 <td className="hidden px-5 py-3 sm:table-cell">
                   <DeviationBar

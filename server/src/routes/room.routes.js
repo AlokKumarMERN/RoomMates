@@ -5,6 +5,7 @@ import authenticate from '../middleware/authenticate.js';
 import { requireRoomAdmin, requireRoomMember } from '../middleware/roomAccess.js';
 import validate from '../middleware/validate.js';
 import { roomExpenseRoutes } from './expense.routes.js';
+import { roomSettlementRoutes } from './settlement.routes.js';
 import {
   createRoomSchema,
   joinRoomSchema,
@@ -39,6 +40,7 @@ router.get(
 // is what authorises them — so the check happens once, here, and the expense
 // router never has to repeat it.
 router.use('/:roomId/expenses', requireRoomMember, roomExpenseRoutes);
+router.use('/:roomId/settlements', requireRoomMember, roomSettlementRoutes);
 
 router.patch(
   '/:roomId',

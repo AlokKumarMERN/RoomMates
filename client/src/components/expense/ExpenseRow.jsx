@@ -35,7 +35,12 @@ export default function ExpenseRow({ expense, currentUserId }) {
     <li>
       <Link
         to={`/expenses/${expense.id}`}
-        className="flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-slate-50"
+        // A removed expense is dimmed rather than hidden. The history page can
+        // summon these, and a row that looked identical to a live one would be
+        // actively misleading about what still counts.
+        className={`flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-slate-50 ${
+          expense.isDeleted ? 'opacity-60' : ''
+        }`}
       >
         <span
           className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-base"
@@ -53,6 +58,11 @@ export default function ExpenseRow({ expense, currentUserId }) {
                 Edited
               </span>
             )}
+            {expense.isDeleted && (
+              <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-slate-600 uppercase">
+                Removed
+              </span>
+            )}
           </p>
           <p className="mt-0.5 truncate text-xs text-slate-500">
             {payerNames(expense, currentUserId)} paid · {formatExpenseDate(expense.date)} ·{' '}
@@ -61,11 +71,17 @@ export default function ExpenseRow({ expense, currentUserId }) {
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="tabular text-sm font-semibold text-slate-900">
+          <p
+            className={`tabular text-sm font-semibold ${
+              expense.isDeleted ? 'text-slate-500 line-through' : 'text-slate-900'
+            }`}
+          >
             {formatINR(expense.amount)}
           </p>
           <p className="tabular mt-0.5 text-xs text-slate-500">
-            {myShare > 0 ? (
+            {expense.isDeleted ? (
+              <>not counted</>
+            ) : myShare > 0 ? (
               <>your share {formatINR(myShare)}</>
             ) : iPaid ? (
               <>not your split</>

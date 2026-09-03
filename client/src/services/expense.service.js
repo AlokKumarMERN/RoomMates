@@ -32,3 +32,30 @@ export async function listExpenses(roomId, params = {}) {
 export function getExpense(expenseId) {
   return request({ url: `/expenses/${expenseId}`, method: 'GET' });
 }
+
+/**
+ * Edit an expense. Only the creator may — the API enforces it, and returns 403
+ * with `NOT_EXPENSE_CREATOR` for anyone else.
+ *
+ * The four money fields travel together or not at all: send all of `amount`,
+ * `splitType`, `participants` and `paidBy`, or none of them. A new total with
+ * the old split leaves shares that no longer add up, and the server will not
+ * guess whose share absorbs the difference.
+ */
+export function updateExpense(expenseId, payload) {
+  return request({ url: `/expenses/${expenseId}`, method: 'PATCH', data: payload });
+}
+
+/**
+ * Remove an expense — a soft delete, so this returns the expense rather than
+ * nothing. It stays readable, marked as removed, and stops counting towards
+ * any total. The creator or a room admin may do it.
+ */
+export function deleteExpense(expenseId) {
+  return request({ url: `/expenses/${expenseId}`, method: 'DELETE' });
+}
+
+/** Every edit ever made to this expense, newest first. */
+export function getExpenseHistory(expenseId) {
+  return request({ url: `/expenses/${expenseId}/history`, method: 'GET' });
+}

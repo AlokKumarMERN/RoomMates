@@ -1,25 +1,26 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import ExpenseFilters, {
+  EMPTY_FILTERS,
+  isFiltered as filtersApplied,
+} from '../components/expense/ExpenseFilters.jsx';
 import ExpenseRow from '../components/expense/ExpenseRow.jsx';
 import Button from '../components/ui/Button.jsx';
-import Select from '../components/ui/Select.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
 import useAuth from '../hooks/useAuth.js';
+import useDebouncedValue from '../hooks/useDebouncedValue.js';
 import useExpenses from '../hooks/useExpenses.js';
 import useRoom from '../hooks/useRoom.js';
-import { CATEGORIES } from '../utils/categories.js';
-import { formatINR } from '../utils/money.js';
+import { formatINR, toPaise } from '../utils/money.js';
 
-const SORT_OPTIONS = [
-  { value: '-date', label: 'Newest first' },
-  { value: 'date', label: 'Oldest first' },
-  { value: '-amount', label: 'Largest first' },
-  { value: 'amount', label: 'Smallest first' },
-];
-
-const EMPTY_FILTERS = { category: '', member: '', from: '', to: '', sort: '-date' };
-
+/**
+ * The expense history (spec §19).
+ *
+ * Every filter is applied server-side and the list is paginated, so the browser
+ * only ever holds the page it is showing — a room with a thousand expenses
+ * behaves exactly like a room with ten.
+ */
 export default function Expenses() {
   const { user } = useAuth();
   const { activeRoom, isLoading: isLoadingRooms } = useRoom();
@@ -27,11 +28,28 @@ export default function Expenses() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
 
-  const { expenses, meta, isLoading, error } = useExpenses(activeRoom?.id, {
-    ...filters,
-    page,
-    limit: 20,
-  });
+  // The search box updates on every keystroke; the request does not.
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
+
+  const query = useMemo(
+    () => ({
+      ...filters,
+      search: debouncedSearch,
+      // The two amount boxes are in rupees, like every other amount a person
+      // types. Paise is what crosses the wire.
+      //
+      // The empty check is not redundant: toPaise("") is 0, not null — Number("")
+      // is 0 in JavaScript — so converting unconditionally turns an untouched
+      // "Most" box into "at most ₹0", and the list silently matches nothing.
+      minAmount: filters.minAmount ? (toPaise(filters.minAmount) ?? '') : '',
+      maxAmount: filters.maxAmount ? (toPaise(filters.maxAmount) ?? '') : '',
+      page,
+      limit: 20,
+    }),
+    [filters, debouncedSearch, page],
+  );
+
+  const { expenses, meta, isLoading, error } = useExpenses(activeRoom?.id, query);
 
   // Any filter change invalidates the page number — page 3 of a narrower result
   // set is usually empty, which reads as "no expenses" and is simply wrong.
@@ -40,9 +58,12 @@ export default function Expenses() {
     setPage(1);
   };
 
-  const isFiltered = Object.entries(EMPTY_FILTERS).some(
-    ([key, value]) => filters[key] !== value,
-  );
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setPage(1);
+  };
+
+  const isFiltered = filtersApplied(filters);
 
   if (isLoadingRooms && !activeRoom) {
     return (
@@ -77,15 +98,23 @@ export default function Expenses() {
     );
   }
 
+  // Past members are included: they appear on old expenses, and filtering the
+  // history by someone who has since moved out is exactly the sort of question
+  // a history page exists to answer.
   const memberOptions = [
     { value: '', label: 'Anyone' },
-    ...activeRoom.members
-      .filter((member) => member.isActive)
-      .map((member) => ({
-        value: member.user.id,
-        label: member.user.id === user?.id ? `${member.user.name} (you)` : member.user.name,
-      })),
+    ...activeRoom.members.map((member) => ({
+      value: member.user.id,
+      label:
+        member.user.id === user?.id
+          ? `${member.user.name} (you)`
+          : member.isActive
+            ? member.user.name
+            : `${member.user.name} (left)`,
+    })),
   ];
+
+  const pageTotal = expenses.reduce((total, expense) => total + expense.amount, 0);
 
   return (
     <div>
@@ -98,6 +127,7 @@ export default function Expenses() {
               <>
                 {' · '}
                 {meta.total} {meta.total === 1 ? 'expense' : 'expenses'}
+                {isFiltered && ' matching'}
               </>
             )}
           </p>
@@ -111,82 +141,12 @@ export default function Expenses() {
         </Link>
       </div>
 
-      {/* Filters */}
-      <section className="mt-7 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="sr-only">Filter expenses</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
-            label="Category"
-            value={filters.category}
-            onChange={(event) => setFilter('category', event.target.value)}
-            options={[
-              { value: '', label: 'All categories' },
-              ...CATEGORIES.map((category) => ({
-                value: category.value,
-                label: `${category.icon}  ${category.label}`,
-              })),
-            ]}
-          />
-          <Select
-            label="Involving"
-            value={filters.member}
-            onChange={(event) => setFilter('member', event.target.value)}
-            options={memberOptions}
-            hint="Paid for it, or owes part of it"
-          />
-          <div>
-            <label
-              htmlFor="filter-from"
-              className="block text-sm font-medium text-slate-700"
-            >
-              From
-            </label>
-            <input
-              id="filter-from"
-              type="date"
-              value={filters.from}
-              max={filters.to || undefined}
-              onChange={(event) => setFilter('from', event.target.value)}
-              className="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor="filter-to" className="block text-sm font-medium text-slate-700">
-              To
-            </label>
-            <input
-              id="filter-to"
-              type="date"
-              value={filters.to}
-              min={filters.from || undefined}
-              onChange={(event) => setFilter('to', event.target.value)}
-              className="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <Select
-            label="Sort"
-            className="w-48"
-            value={filters.sort}
-            onChange={(event) => setFilter('sort', event.target.value)}
-            options={SORT_OPTIONS}
-          />
-          {isFiltered && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setFilters(EMPTY_FILTERS);
-                setPage(1);
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
-        </div>
-      </section>
+      <ExpenseFilters
+        filters={filters}
+        onChange={setFilter}
+        onClear={clearFilters}
+        memberOptions={memberOptions}
+      />
 
       {error && (
         <p
@@ -197,13 +157,12 @@ export default function Expenses() {
         </p>
       )}
 
-      {/* List */}
       <section className="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white">
         {isLoading ? (
           <ul className="divide-y divide-slate-100">
             {/* Skeletons rather than a spinner: the list keeps its shape, so
                 nothing jumps when the real rows arrive (spec §24). */}
-            {Array.from({ length: 5 }).map((_, index) => (
+            {Array.from({ length: 5 }).map((unused, index) => (
               <li key={index} className="flex items-center gap-3.5 px-5 py-3.5">
                 <span className="size-10 shrink-0 animate-pulse rounded-full bg-slate-100" />
                 <span className="flex-1">
@@ -221,18 +180,12 @@ export default function Expenses() {
             </h2>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-600">
               {isFiltered
-                ? 'Try a wider date range, or clear the filters to see everything.'
+                ? 'Try a wider date range, a different search, or clear the filters to see everything.'
                 : 'Add the first one and RoomMates will work out who owes what.'}
             </p>
             <div className="mt-6">
               {isFiltered ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setFilters(EMPTY_FILTERS);
-                    setPage(1);
-                  }}
-                >
+                <Button variant="secondary" onClick={clearFilters}>
                   Clear filters
                 </Button>
               ) : (
@@ -255,10 +208,7 @@ export default function Expenses() {
       </section>
 
       {meta && meta.totalPages > 1 && (
-        <nav
-          aria-label="Expense pages"
-          className="mt-4 flex items-center justify-between gap-3"
-        >
+        <nav aria-label="Expense pages" className="mt-4 flex items-center justify-between gap-3">
           <Button
             variant="secondary"
             size="sm"
@@ -283,9 +233,13 @@ export default function Expenses() {
 
       {meta?.total > 0 && (
         <p className="mt-4 text-center text-xs text-slate-500">
-          Totals, balances and who-owes-whom arrive with the dashboard in Phase 6. Every expense
-          here already carries the split it was created with —{' '}
-          {formatINR(expenses.reduce((total, expense) => total + expense.amount, 0))} on this page.
+          {formatINR(pageTotal)} on this page.{' '}
+          {/* Deliberately not a running total of the filtered set: a figure that
+              means "some of the matches" is more misleading than no figure, and
+              the dashboard is where room totals belong. */}
+          <Link to="/dashboard" className="font-medium text-brand-600 hover:text-brand-700">
+            See the room totals
+          </Link>
         </p>
       )}
     </div>

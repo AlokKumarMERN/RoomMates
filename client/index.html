@@ -2,11 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="RoomMates — split expenses, stay organized, live together better."
     />
+
+    <!--
+      An inline SVG favicon rather than a file: it is one line, it costs no
+      request, and it stays sharp at every size. Without one the browser asks
+      for /favicon.ico on every single page load and takes a 404 for it.
+    -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233878a6'/%3E%3Cpath d='M7 15.5 16 8l9 7.5M9.5 14V24h13V14M14 24v-5.5h4V24' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+
+    <!-- Colours the browser chrome on Android, so the app does not sit in a
+         stripe of default grey. -->
+    <meta name="theme-color" content="#ffffff" />
+
     <title>RoomMates</title>
   </head>
   <body>

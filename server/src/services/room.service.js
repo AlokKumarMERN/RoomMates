@@ -1,6 +1,7 @@
 import Room from '../models/Room.js';
 import ApiError from '../utils/ApiError.js';
 import { generateRoomCode } from '../utils/roomCode.js';
+import { notifyRoom, safely } from './notification.service.js';
 
 const MAX_CODE_ATTEMPTS = 5;
 const MEMBER_FIELDS = 'name email avatar';
@@ -87,7 +88,22 @@ export async function joinRoomByCode({ code, userId }) {
   }
 
   await room.save();
-  return room.populate('members.user', MEMBER_FIELDS);
+  await room.populate('members.user', MEMBER_FIELDS);
+
+  const joiner = room.members.find((member) => String(member.user?._id ?? member.user) === String(userId));
+  const name = joiner?.user?.name?.split(' ')[0] ?? 'Someone';
+
+  await safely(() =>
+    notifyRoom({
+      room,
+      actorId: userId,
+      type: 'member_joined',
+      entity: { type: 'room', id: room._id },
+      messageFor: () => `${name} joined ${room.name}.`,
+    }),
+  );
+
+  return room;
 }
 
 export async function updateRoom({ room, updates }) {
