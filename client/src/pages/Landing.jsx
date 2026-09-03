@@ -1,150 +1,206 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
-import { getHealth, triggerTestError } from '../services/health.service.js';
-
-const STATUS_STYLES = {
-  ok: 'bg-positive-50 text-positive-700 ring-positive-500/20',
-  degraded: 'bg-amber-50 text-amber-800 ring-amber-500/20',
-  offline: 'bg-negative-50 text-negative-700 ring-negative-500/20',
-  checking: 'bg-slate-100 text-slate-600 ring-slate-400/20',
-};
-
-const STATUS_LABELS = {
-  ok: 'API and database connected',
-  degraded: 'API up, database unreachable',
-  offline: 'API unreachable',
-  checking: 'Checking connection…',
-};
+import Logo from '../components/Logo.jsx';
+import useAuth from '../hooks/useAuth.js';
+import { formatINR, formatSignedINR } from '../utils/money.js';
 
 /**
- * Phase 1 landing page.
- *
- * Beyond the branding, it exists to prove the foundation works end to end:
- * the client reaches the API, the API reaches MongoDB, and a thrown error comes
- * back in the standard envelope. Phase 2 replaces the body with the real
- * marketing landing page and the sign-in call to action.
+ * Amounts are in paise, exactly as the API will send them — so this preview uses
+ * the same formatting path as the real dashboard rather than hard-coded strings.
  */
+const DEMO_MEMBERS = [
+  { name: 'Alok', paid: 40000, owed: 50000 },
+  { name: 'Rahul', paid: 20000, owed: 50000 },
+  { name: 'Aman', paid: 60000, owed: 50000 },
+  { name: 'Rohit', paid: 80000, owed: 50000 },
+];
+
+const DEMO_SETTLEMENTS = [
+  { from: 'Rahul', to: 'Rohit', amount: 30000 },
+  { from: 'Alok', to: 'Aman', amount: 10000 },
+];
+
+const FEATURES = [
+  {
+    title: 'One code, everyone in',
+    body: 'Create a room, share the code, and your flatmates join in seconds. Keep separate rooms for home, trips and the office — the books never mix.',
+  },
+  {
+    title: 'Split it how it actually happened',
+    body: 'Equally, by percentage, by exact amounts, or between just the three people who ordered dinner. Not everything is shared by everyone.',
+  },
+  {
+    title: 'Settle in the fewest payments',
+    body: 'We work out the net position for each person and suggest the smallest set of transfers that clears it. Fewer payments, less confusion.',
+  },
+];
+
 export default function Landing() {
-  const [status, setStatus] = useState('checking');
-  const [health, setHealth] = useState(null);
-  const [errorProbe, setErrorProbe] = useState(null);
+  const { isAuthenticated } = useAuth();
 
-  const checkHealth = useCallback(async () => {
-    setStatus('checking');
-    try {
-      const data = await getHealth();
-      setHealth(data);
-      setStatus(data.database === 'connected' ? 'ok' : 'degraded');
-    } catch (error) {
-      setHealth(null);
-      setStatus('offline');
-      setErrorProbe({ kind: 'health', code: error.code, message: error.message });
-    }
-  }, []);
-
-  useEffect(() => {
-    checkHealth();
-  }, [checkHealth]);
-
-  /** Calls the deliberate-failure route to confirm error shaping works. */
-  const probeErrorHandling = useCallback(async () => {
-    try {
-      await triggerTestError();
-      setErrorProbe({ kind: 'unexpected', message: 'Expected an error but the request succeeded.' });
-    } catch (error) {
-      setErrorProbe({ kind: 'handled', code: error.code, message: error.message });
-    }
-  }, []);
+  const total = DEMO_MEMBERS.reduce((sum, member) => sum + member.paid, 0);
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-16">
-      <div className="w-full max-w-lg">
-        <header className="text-center">
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Room<span className="text-brand-500">Mates</span>
+    <div className="min-h-dvh">
+      <header className="border-b border-slate-200 bg-white">
+        <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
+          <Logo size="sm" />
+
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+              >
+                Go to dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        {/* Hero */}
+        <section className="mx-auto max-w-5xl px-6 pt-16 pb-12 text-center sm:pt-24">
+          <h1 className="mx-auto max-w-2xl text-4xl font-semibold tracking-tight text-balance text-slate-900 sm:text-5xl">
+            Shared expenses, settled fairly.
           </h1>
-          <p className="mt-3 text-lg text-slate-600">
-            Split expenses. Stay organized. Live together better.
+          <p className="mx-auto mt-5 max-w-xl text-lg text-pretty text-slate-600">
+            Split expenses. Stay organized. Live together better. Track what everyone spends and
+            find out exactly who owes whom — without the group-chat arithmetic.
           </p>
-        </header>
 
-        <section
-          aria-labelledby="status-heading"
-          className="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <h2
-            id="status-heading"
-            className="text-xs font-semibold tracking-wider text-slate-500 uppercase"
-          >
-            Phase 1 — Foundation
-          </h2>
-
-          <div
-            className={`mt-4 flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm font-medium ring-1 ring-inset ${STATUS_STYLES[status]}`}
-          >
-            <span
-              className={`size-2 shrink-0 rounded-full ${
-                status === 'ok'
-                  ? 'bg-positive-500'
-                  : status === 'degraded'
-                    ? 'bg-amber-500'
-                    : status === 'offline'
-                      ? 'bg-negative-500'
-                      : 'animate-pulse bg-slate-400'
-              }`}
-              aria-hidden="true"
-            />
-            {STATUS_LABELS[status]}
-          </div>
-
-          {health && (
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-              <dt className="text-slate-500">Service</dt>
-              <dd className="tabular text-slate-900">{health.service}</dd>
-              <dt className="text-slate-500">Environment</dt>
-              <dd className="tabular text-slate-900">{health.environment}</dd>
-              <dt className="text-slate-500">Database</dt>
-              <dd className="tabular text-slate-900">{health.database}</dd>
-              <dt className="text-slate-500">Uptime</dt>
-              <dd className="tabular text-slate-900">{health.uptimeSeconds}s</dd>
-            </dl>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            <button
-              type="button"
-              onClick={checkHealth}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-            >
-              Re-check
-            </button>
-            <button
-              type="button"
-              onClick={probeErrorHandling}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              Test error handling
-            </button>
-          </div>
-
-          {errorProbe && (
-            <p
-              role="status"
-              className="mt-4 rounded-lg bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700"
-            >
-              {errorProbe.kind === 'handled' && (
-                <span className="font-medium text-positive-700">Handled correctly — </span>
-              )}
-              <span className="tabular text-slate-500">{errorProbe.code}: </span>
-              {errorProbe.message}
-            </p>
+          {!isAuthenticated && (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/register"
+                className="rounded-lg bg-brand-600 px-6 py-3 font-medium text-white transition-colors hover:bg-brand-700"
+              >
+                Create your first room
+              </Link>
+              <Link
+                to="/login"
+                className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Sign in
+              </Link>
+            </div>
           )}
         </section>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Next up: Phase 2 — authentication.
+        {/* Worked example — the clearest way to explain what the app does */}
+        <section className="mx-auto max-w-3xl px-6 pb-16">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm font-medium text-slate-900">Home</span>
+                <span className="tabular rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  RM-7X92AB
+                </span>
+              </div>
+              <span className="text-sm text-slate-500">
+                4 members · {formatINR(total, { showDecimals: false })} total
+              </span>
+            </div>
+
+            {/* Table on larger screens, cards on mobile (spec §22) */}
+            <div className="divide-y divide-slate-100">
+              {DEMO_MEMBERS.map((member) => {
+                const balance = member.paid - member.owed;
+                const isCreditor = balance > 0;
+
+                return (
+                  <div
+                    key={member.name}
+                    className="flex items-center justify-between gap-4 px-5 py-3.5"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600"
+                        aria-hidden="true"
+                      >
+                        {member.name[0]}
+                      </span>
+                      <span className="truncate text-sm text-slate-900">{member.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-5">
+                      <span className="tabular hidden text-sm text-slate-500 sm:block">
+                        paid {formatINR(member.paid, { showDecimals: false })}
+                      </span>
+                      <span
+                        className={`tabular rounded-md px-2 py-1 text-sm font-semibold ${
+                          isCreditor
+                            ? 'bg-positive-50 text-positive-700'
+                            : 'bg-negative-50 text-negative-700'
+                        }`}
+                      >
+                        {formatSignedINR(balance, { showDecimals: false })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Suggested settlement — 2 payments
+              </h2>
+              <ul className="mt-3 space-y-2">
+                {DEMO_SETTLEMENTS.map((settlement) => (
+                  <li
+                    key={`${settlement.from}-${settlement.to}`}
+                    className="flex items-center gap-2 text-sm text-slate-700"
+                  >
+                    <span className="font-medium text-slate-900">{settlement.from}</span>
+                    <span aria-hidden="true" className="text-slate-400">
+                      →
+                    </span>
+                    <span className="font-medium text-slate-900">{settlement.to}</span>
+                    <span className="tabular ml-auto font-semibold text-slate-900">
+                      {formatINR(settlement.amount, { showDecimals: false })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="border-t border-slate-200 bg-white">
+          <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 sm:grid-cols-3">
+            {FEATURES.map((feature) => (
+              <div key={feature.title}>
+                <h2 className="text-base font-semibold text-slate-900">{feature.title}</h2>
+                <p className="mt-2 text-sm text-pretty text-slate-600">{feature.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-slate-200 py-8">
+        <p className="text-center text-sm text-slate-500">
+          RoomMates — split expenses, stay organized, live together better.
         </p>
-      </div>
-    </main>
+      </footer>
+    </div>
   );
 }

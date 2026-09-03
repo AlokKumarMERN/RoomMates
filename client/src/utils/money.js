@@ -29,8 +29,30 @@ export function formatINR(paise, { showDecimals = true } = {}) {
   }).format(toRupees(paise ?? 0));
 }
 
-/** "+₹300.00" / "−₹300.00" — for balances, where the sign carries the meaning. */
-export function formatSignedINR(paise) {
+/**
+ * "+₹300.00" / "−₹300.00" — for balances, where the sign carries the meaning.
+ * Takes the same options as formatINR so a screen can show signed and unsigned
+ * amounts at matching precision.
+ */
+export function formatSignedINR(paise, options) {
   const sign = paise > 0 ? '+' : paise < 0 ? '−' : '';
-  return `${sign}${formatINR(Math.abs(paise))}`;
+  return `${sign}${formatINR(Math.abs(paise), options)}`;
+}
+
+/**
+ * Short form for axis ticks and tight spaces: 250000 → "₹2.5k", 12000000 → "₹1.2L".
+ *
+ * Lakhs rather than millions, because the rest of the app formats in en-IN and
+ * a reader who sees ₹1,20,000 in a table should not meet "₹120k" on the axis
+ * beside it. Full precision always stays available in the tooltip and the
+ * table view — this is for labels that must not wrap.
+ */
+export function formatCompactINR(paise) {
+  const rupees = Math.round(toRupees(paise ?? 0));
+
+  if (Math.abs(rupees) >= 10000000) return `₹${(rupees / 10000000).toFixed(1)}Cr`;
+  if (Math.abs(rupees) >= 100000) return `₹${(rupees / 100000).toFixed(1)}L`;
+  if (Math.abs(rupees) >= 1000) return `₹${(rupees / 1000).toFixed(1)}k`;
+
+  return `₹${rupees}`;
 }

@@ -40,6 +40,17 @@ export default function errorHandler(err, req, res, next) {
       field: error.path,
       message: error.message,
     }));
+  } else if (err.type === 'entity.parse.failed') {
+    // body-parser could not parse the JSON body. The request is malformed, so
+    // this is the client's fault — without this branch it falls through to a
+    // 500 and gets logged as a server fault that nobody can act on.
+    statusCode = 400;
+    code = 'INVALID_JSON';
+    message = 'The request body was not valid JSON.';
+  } else if (err.type === 'entity.too.large') {
+    statusCode = 413;
+    code = 'PAYLOAD_TOO_LARGE';
+    message = 'That request was too large.';
   } else if (err.name === 'CastError') {
     // A malformed ObjectId in the URL — treat as "not found", not as a server fault.
     statusCode = 400;

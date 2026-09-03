@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RoomMates — Project Understanding &amp; Build Plan</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+
+  :root{
+    --ink:#16181d;
+    --ink-2:#3e434e;
+    --ink-3:#6b7280;
+    --line:#e2e5ea;
+    --line-2:#f0f2f5;
+    --accent:#1f5f8b;
+    --accent-soft:#eaf2f8;
+    --good:#0f7b57;
+    --good-soft:#e7f5ef;
+    --warn:#9a5b00;
+    --warn-soft:#fdf3e3;
+    --bad:#9b2c2c;
+    --bad-soft:#fbeaea;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    font-family:"Segoe UI", -apple-system, system-ui, Roboto, Arial, sans-serif;
+    font-size:10.2pt;
+    line-height:1.55;
+    color:var(--ink);
+    background:#fff;
+  }
+
+  .page-break{ page-break-before:always; }
+  h1,h2,h3,h4{ page-break-after:avoid; }
+  table,figure,.card,.callout,.phase{ page-break-inside:avoid; }
+
+  /* ---------- Cover ---------- */
+  .cover{
+    height:245mm;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    page-break-after:always;
+    border-left:4px solid var(--accent);
+    padding-left:14mm;
+  }
+  .cover .eyebrow{
+    font-size:9pt; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; margin-bottom:10mm;
+  }
+  .cover h1{
+    font-size:34pt; line-height:1.08; margin:0 0 6mm; letter-spacing:-.02em;
+  }
+  .cover .tagline{
+    font-size:13pt; color:var(--ink-2); margin:0 0 12mm; font-style:italic;
+  }
+  .cover .subtitle{
+    font-size:12pt; color:var(--ink-2); max-width:130mm; margin:0 0 16mm;
+  }
+  .cover dl{ display:grid; grid-template-columns:34mm 1fr; gap:2.5mm 6mm; margin:0; font-size:9.5pt; max-width:120mm; }
+  .cover dt{ color:var(--ink-3); }
+  .cover dd{ margin:0; font-weight:600; }
+
+  /* ---------- Headings ---------- */
+  h2{
+    font-size:16pt; margin:0 0 4mm; padding-bottom:2mm;
+    border-bottom:2px solid var(--line); letter-spacing:-.01em;
+  }
+  h2 .num{ color:var(--accent); font-weight:700; margin-right:2.5mm; }
+  h3{ font-size:11.5pt; margin:7mm 0 2.5mm; color:var(--ink); }
+  h4{ font-size:10pt; margin:5mm 0 1.5mm; color:var(--ink-2); text-transform:uppercase; letter-spacing:.06em; }
+
+  p{ margin:0 0 3mm; }
+  ul,ol{ margin:0 0 3mm; padding-left:5.5mm; }
+  li{ margin-bottom:1.4mm; }
+  strong{ font-weight:650; }
+  code{
+    font-family:Consolas,"Cascadia Mono",monospace; font-size:9pt;
+    background:var(--line-2); padding:.5mm 1.2mm; border-radius:2px;
+  }
+
+  /* ---------- Tables ---------- */
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 5mm; font-size:9.2pt; }
+  th{
+    text-align:left; background:var(--line-2); color:var(--ink-2);
+    font-weight:650; font-size:8.4pt; text-transform:uppercase; letter-spacing:.05em;
+    padding:2mm 2.5mm; border-bottom:1.5px solid var(--line);
+  }
+  td{ padding:2mm 2.5mm; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+  .num-col{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pos{ color:var(--good); font-weight:650; }
+  .neg{ color:var(--bad); font-weight:650; }
+
+  /* ---------- Callouts ---------- */
+  .callout{
+    border-left:3px solid var(--accent); background:var(--accent-soft);
+    padding:3.5mm 4mm; margin:4mm 0; border-radius:0 3px 3px 0;
+  }
+  .callout.warn{ border-color:var(--warn); background:var(--warn-soft); }
+  .callout.good{ border-color:var(--good); background:var(--good-soft); }
+  .callout .label{
+    font-size:8.2pt; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--accent); display:block; margin-bottom:1.5mm;
+  }
+  .callout.warn .label{ color:var(--warn); }
+  .callout.good .label{ color:var(--good); }
+  .callout p:last-child{ margin-bottom:0; }
+
+  /* ---------- Code block ---------- */
+  pre{
+    font-family:Consolas,"Cascadia Mono",monospace; font-size:8.4pt; line-height:1.5;
+    background:#fafbfc; border:1px solid var(--line); border-radius:4px;
+    padding:3mm 3.5mm; margin:3mm 0 5mm; overflow-x:auto; white-space:pre-wrap;
+  }
+  pre .c{ color:var(--ink-3); font-style:italic; }
+  pre .k{ color:var(--accent); font-weight:600; }
+
+  /* ---------- Layered architecture diagram ---------- */
+  .stack{ margin:4mm 0 5mm; }
+  .layer{
+    border:1px solid var(--line); border-radius:4px; padding:2.5mm 3.5mm;
+    margin-bottom:2mm; background:#fff;
+  }
+  .layer .lt{ font-weight:650; font-size:9.4pt; margin-bottom:1mm; }
+  .layer .ld{ font-size:8.8pt; color:var(--ink-3); }
+  .layer.hl{ border-color:var(--accent); background:var(--accent-soft); }
+  .arrow{ text-align:center; color:var(--ink-3); font-size:9pt; margin:-.5mm 0 1.5mm; }
+
+  /* ---------- Phase cards ---------- */
+  .phase{
+    border:1px solid var(--line); border-radius:5px; margin-bottom:3.5mm;
+    overflow:hidden;
+  }
+  .phase-head{
+    display:flex; align-items:baseline; gap:3mm;
+    background:var(--line-2); padding:2.2mm 3.5mm; border-bottom:1px solid var(--line);
+  }
+  .phase-num{
+    font-size:8.2pt; font-weight:700; color:#fff; background:var(--accent);
+    border-radius:3px; padding:.8mm 2mm; letter-spacing:.04em; white-space:nowrap;
+  }
+  .phase-title{ font-weight:650; font-size:10pt; flex:1; }
+  .phase-est{ font-size:8.4pt; color:var(--ink-3); white-space:nowrap; }
+  .phase-body{ padding:3mm 3.5mm; font-size:9.2pt; }
+  .phase-body ul{ margin-bottom:2.5mm; }
+  .done{
+    border-top:1px dashed var(--line); padding-top:2mm; margin-top:1mm;
+    font-size:8.8pt; color:var(--ink-2);
+  }
+  .done b{ color:var(--good); text-transform:uppercase; font-size:8pt; letter-spacing:.06em; }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:0 7mm; }
+
+  .foot{
+    margin-top:8mm; padding-top:3mm; border-top:1px solid var(--line);
+    font-size:8.4pt; color:var(--ink-3);
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="eyebrow">Project Understanding &amp; Build Plan</div>
+  <h1>RoomMates</h1>
+  <p class="tagline">"Split expenses. Stay organized. Live together better."</p>
+  <p class="subtitle">A shared-expense management platform for people living together — room codes, flexible splits,
+  an auditable expense history, and settlement suggestions that minimise the number of payments.</p>
+  <dl>
+    <dt>Stack</dt><dd>MERN — React + Vite + Tailwind / Express + MongoDB</dd>
+    <dt>Status at writing</dt><dd>Greenfield — no code exists yet</dd>
+    <dt>Prepared for</dt><dd>Alok</dd>
+    <dt>Date</dt><dd>2 September 2026</dd>
+  </dl>
+</div>
+
+<!-- ============ 1. UNDERSTANDING ============ -->
+<h2><span class="num">1</span>What I Understand This Project To Be</h2>
+
+<p>RoomMates is <strong>not</strong> a roommate-finding or social app. It is a small, correctness-critical
+<strong>financial ledger</strong> wrapped in a friendly SaaS-style interface. Everything else — the dashboard,
+the charts, the notifications — is presentation on top of one core question:</p>
+
+<div class="callout">
+  <span class="label">The one question the app answers</span>
+  <p><em>"Given everything this group has spent, who owes whom, and how few payments can settle it?"</em></p>
+</div>
+
+<p>The product model in one paragraph: a user registers, creates a <strong>room</strong> (a shared-expense group)
+and gets a unique <strong>room code</strong> such as <code>RM-7X92AB</code>. They share the code; others join with it.
+Anyone in the room logs expenses — who paid, how much, for what, and <em>which members it should be split between</em>.
+The system continuously maintains each member's net balance, shows how each person compares to the group,
+and proposes a minimal set of payments to settle up. Every expense is permanent: edits are recorded as
+revisions rather than overwrites, and deletions are soft. One user can belong to many rooms
+(Home, Office, Trip, Veg group, Non-veg group), and room data never mixes.</p>
+
+<h3>What makes this harder than it looks</h3>
+
+<p>A naive version of this app is a weekend build. The requirements you have written are not the naive version —
+three of them are genuinely hard, and they are the ones that decide whether the architecture holds up:</p>
+
+<table>
+  <thead>
+    <tr><th style="width:32%">Requirement</th><th>Why it is hard</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Historical accuracy when membership changes</strong><br><span style="color:var(--ink-3)">Spec §3, §29</span></td>
+      <td>If shares are computed at read time from <em>current</em> membership, then the moment a 5th person joins,
+      every past expense silently re-splits 5 ways and last month's report changes. Old settled balances become wrong.</td>
+    </tr>
+    <tr>
+      <td><strong>Edits must never destroy the previous value</strong><br><span style="color:var(--ink-3)">Spec §8, §9</span></td>
+      <td>Calculations must use the latest value while the audit trail keeps every prior one — so the expense
+      document and its history cannot be the same record.</td>
+    </tr>
+    <tr>
+      <td><strong>Flexible splits (equal / custom / percentage / subset)</strong><br><span style="color:var(--ink-3)">Spec §6, §7</span></td>
+      <td>Once a dinner can be split between 3 of 5 people, "total ÷ members" stops being anyone's fair share.
+      The whole calculation model has to change shape. See §2.2 — this is the one correction I'd make to the spec.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Sections 2 and 3 of this document are my proposed answers to those three. The rest is the build plan.</p>
+
+<!-- ============ 2. CORE DESIGN DECISIONS ============ -->
+<div class="page-break"></div>
+<h2><span class="num">2</span>The Three Core Design Decisions</h2>
+
+<h3>2.1 &nbsp;Snapshot the split at write time — never recompute it at read time</h3>
+
+<p>This single decision solves the historical-accuracy requirement (§3, §29) completely, and it costs almost nothing.</p>
+
+<p>When an expense is created, the server resolves the split <em>immediately</em> and stores the result as an
+immutable list of per-member shares on the expense document itself:</p>
+
+<pre><span class="c">// One expense document, after the server resolves the split</span>
+{
+  amount: 2000, paidBy: [{ user: "rohit", amount: 2000 }],
+  splitType: <span class="k">"equal"</span>,
+  <span class="k">shares</span>: [                      <span class="c">// ← frozen at creation. Never recomputed.</span>
+    { user: "alok",  amount: 500 },
+    { user: "rahul", amount: 500 },
+    { user: "aman",  amount: 500 },
+    { user: "rohit", amount: 500 }
+  ]
+}
+</pre>
+
+<p>Now a member joining or leaving is just a change to the <em>room's</em> member list. It cannot touch a single
+past expense, because no past expense refers to "current members" — each one carries its own participant list.
+Historical reports are stable by construction, not by careful coding.</p>
+
+<div class="callout good">
+  <span class="label">Consequence</span>
+  <p>Every figure in the app — balances, totals, per-member spend, settlements, any date-ranged report —
+  becomes a simple sum over these frozen share rows. There is no "recalculate history" code path to get wrong,
+  because there is no recalculation.</p>
+</div>
+
+<p>We still store <code>joinedAt</code> / <code>leftAt</code> on each membership as the spec asks, but they serve
+reporting and display ("who was here in July?"), not the money math. Members who leave are marked inactive,
+never removed, so their name still renders on old expenses.</p>
+
+<h3>2.2 &nbsp;Balance = <span style="white-space:nowrap">paid − owed</span>. "Average" is a display metric, not the fair share.</h3>
+
+<div class="callout warn">
+  <span class="label">One correction to the spec</span>
+  <p>§5 and §11 define fairness as <em>difference from the average</em> (<code>total ÷ members</code>). That is
+  correct <strong>only</strong> when every expense is split equally among <em>all</em> members. But §6 and §7
+  explicitly require custom splits, percentage splits, and subset splits — the veg/non-veg dinner case.
+  The moment one dinner is split between 3 of 5 people, the average is no longer what anyone actually owes,
+  and a dashboard built on it will show numbers that don't reconcile with the settlement page.</p>
+</div>
+
+<p>The model that stays correct in every case:</p>
+
+<pre>paid<sub>i</sub>     = Σ amounts member i actually paid out
+owed<sub>i</sub>     = Σ member i's share rows across all active expenses
+settled<sub>i</sub>  = Σ confirmed settlements i paid − Σ i received
+
+<span class="k">balance<sub>i</sub>  =  paid<sub>i</sub> − owed<sub>i</sub> + settled<sub>i</sub></span>
+
+balance &gt; 0  →  member is owed money (creditor)
+balance &lt; 0  →  member owes money    (debtor)
+Σ balance    =  0   ← invariant, assert this in tests
+</pre>
+
+<p>Note the third term: settlements adjust balances <em>without touching expense records</em>, exactly as §12 requires.
+Keep the average — it is a genuinely useful "am I spending more than the group?" signal, and your §11
+comparison table is a good screen. Just label it as a comparison metric and drive
+<em>"you owe / you are owed"</em> from <code>balance</code>. When all splits happen to be equal, the two agree anyway.</p>
+
+<h3>2.3 &nbsp;Expenses are append-only: revisions, not overwrites</h3>
+
+<p>Three rules give you the full audit trail in §8 and §9 with very little machinery:</p>
+
+<ul>
+  <li><strong>Edit</strong> → write the old field values into an <code>ExpenseRevision</code> document, then update
+  the expense and set <code>isEdited: true</code>. The expense holds the current truth; revisions hold the past.</li>
+  <li><strong>Delete</strong> → set <code>isDeleted: true</code> and <code>deletedAt</code>. Every query filters on
+  <code>isDeleted: false</code>. Nothing is ever removed from the database.</li>
+  <li><strong>Settle</strong> → insert a <code>Settlement</code> document. Expenses are never modified by a settlement.</li>
+</ul>
+
+<p>Because an edit changes the amount, it also changes the shares — so the edit path re-resolves the split
+and writes a new frozen <code>shares</code> array, with the previous one preserved in the revision. Authorization is
+strictly enforced server-side: only <code>expense.createdBy</code> may edit; creator or room admin may delete.</p>
+
+<!-- ============ 3. CALCULATION ENGINE ============ -->
+<div class="page-break"></div>
+<h2><span class="num">3</span>The Calculation Engine</h2>
+
+<p>Per §28, this lives in <code>server/src/services/calculation/</code> as pure functions that take plain data and
+return plain data — no database access, no Express, no React. That is what makes it unit-testable, and financial
+logic must be tested.</p>
+
+<h3>3.1 &nbsp;Settlement: greedy minimum cash flow</h3>
+
+<p>Given the balances, we want the fewest payments that zero everyone out. The standard approach:</p>
+
+<ol>
+  <li>Split members into <strong>creditors</strong> (balance &gt; 0) and <strong>debtors</strong> (balance &lt; 0).</li>
+  <li>Sort both by magnitude, largest first.</li>
+  <li>Match the largest debtor against the largest creditor. Transfer <code>min(|debt|, credit)</code>.</li>
+  <li>Whichever side hits zero drops out; repeat until all balances are zero.</li>
+</ol>
+
+<p>This yields at most <em>n−1</em> transactions for <em>n</em> members, and in practice far fewer. Using your own
+worked example from §5:</p>
+
+<table>
+  <thead>
+    <tr><th>Member</th><th class="num-col">Paid</th><th class="num-col">Owed (equal split)</th><th class="num-col">Balance</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Alok</td><td class="num-col">₹400</td><td class="num-col">₹500</td><td class="num-col neg">−₹100</td><td>debtor</td></tr>
+    <tr><td>Rahul</td><td class="num-col">₹200</td><td class="num-col">₹500</td><td class="num-col neg">−₹300</td><td>debtor</td></tr>
+    <tr><td>Aman</td><td class="num-col">₹600</td><td class="num-col">₹500</td><td class="num-col pos">+₹100</td><td>creditor</td></tr>
+    <tr><td>Rohit</td><td class="num-col">₹800</td><td class="num-col">₹500</td><td class="num-col pos">+₹300</td><td>creditor</td></tr>
+  </tbody>
+</table>
+
+<p>The algorithm pairs Rahul (−300) with Rohit (+300), then Alok (−100) with Aman (+100):</p>
+
+<div class="callout good">
+  <span class="label">Result — 2 transactions</span>
+  <p><strong>Rahul → Rohit ₹300</strong> &nbsp;•&nbsp; <strong>Alok → Aman ₹100</strong></p>
+  <p style="margin-top:2mm; font-size:9pt;">Your spec §5 sketches a 3-transaction settlement
+  (Rahul→Aman ₹200, Rahul→Rohit ₹100, Alok→Rohit ₹200). Both are valid — every balance reaches zero — but the
+  greedy version needs one payment fewer, which is what §5's own "minimize unnecessary transactions" asks for.
+  Worth knowing the spec's illustration and the implementation will differ here.</p>
+</div>
+
+<h3>3.2 &nbsp;Money is stored in paise, never in rupees</h3>
+
+<div class="callout warn">
+  <span class="label">Non-negotiable</span>
+  <p>Store all amounts as <strong>integer paise</strong> (₹500.50 → <code>50050</code>). JavaScript floats cannot
+  represent 0.1 exactly; a percentage split of ₹1000 three ways in floating point leaves stray fractions that
+  accumulate until balances no longer sum to zero and the settlement page shows ₹0.01 phantom debts.
+  Convert to rupees only at the display layer.</p>
+</div>
+
+<p>Related: an equal split of ₹1000 among 3 gives 33333 / 33333 / 33333 paise = 99999, one paise short.
+The engine assigns remainder paise deterministically (first <em>n</em> participants get +1) so shares always
+sum <em>exactly</em> to the expense total. This is a required unit test.</p>
+
+<h3>3.3 &nbsp;Split resolution</h3>
+
+<table>
+  <thead><tr><th style="width:24%">Split type</th><th>Rule</th><th style="width:34%">Validation (server-side)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Equal</strong></td><td>Total ÷ number of selected participants, remainder distributed deterministically</td><td>At least 1 participant</td></tr>
+    <tr><td><strong>Custom</strong></td><td>Explicit amount per participant</td><td>Σ shares must equal expense total exactly</td></tr>
+    <tr><td><strong>Percentage</strong></td><td>Total × pct, remainder distributed deterministically</td><td>Σ percentages = 100; Σ resulting shares = total</td></tr>
+    <tr><td><strong>Subset</strong></td><td>Any of the above, over a chosen subset of members</td><td>Every participant is an active room member</td></tr>
+  </tbody>
+</table>
+
+<p>The veg/non-veg scenario in §7 is just <strong>subset split with tags</strong> — no special-casing. A room has
+free-form member tags ("veg", "non-veg", "1st floor"); selecting a tag pre-selects those members in the Add
+Expense form. Users who want fully separate books can still create a second room, since the spec allows both.</p>
+
+<!-- ============ 4. ARCHITECTURE ============ -->
+<div class="page-break"></div>
+<h2><span class="num">4</span>System Architecture</h2>
+
+<div class="stack">
+  <div class="layer">
+    <div class="lt">React client — Vite + Tailwind</div>
+    <div class="ld">Pages · reusable components · React Router with protected routes · Context for auth + active room ·
+    lazy-loaded routes · Recharts for the three dashboard charts. No business logic here.</div>
+  </div>
+  <div class="arrow">↕ &nbsp; REST over HTTPS, JWT in Authorization header &nbsp; (+ Socket.IO later)</div>
+  <div class="layer">
+    <div class="lt">Express API</div>
+    <div class="ld"><code>routes</code> → <code>middleware</code> (auth, room membership, role) → <code>validators</code>
+    (Zod) → <code>controllers</code>. Controllers stay thin: parse, delegate, respond.</div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="layer hl">
+    <div class="lt">Service layer — including the calculation engine</div>
+    <div class="ld">All business rules live here. The calculation engine is a set of <strong>pure functions</strong>
+    with no DB or HTTP dependency, so it can be tested directly. This is the heart of the app.</div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="layer">
+    <div class="lt">Mongoose models → MongoDB Atlas</div>
+    <div class="ld">Users · Rooms (with embedded members) · Expenses (with frozen shares) · ExpenseRevisions ·
+    Settlements · Notifications. Compound indexes on every hot query path.</div>
+  </div>
+</div>
+
+<div class="callout">
+  <span class="label">The rule that keeps this maintainable</span>
+  <p>Business logic never leaks upward. A controller that adds two numbers together is a bug in the making —
+  if the number matters, a service computes it. This is what §41 is really asking for, and it is also what
+  lets the entire money model be tested without spinning up a server.</p>
+</div>
+
+<h3>4.1 &nbsp;Repository layout</h3>
+
+<pre>RoomMates/
+├── client/
+│   └── src/
+│       ├── components/     <span class="c">ui/ · expense/ · room/ · charts/</span>
+│       ├── pages/          <span class="c">one folder per route</span>
+│       ├── layouts/        <span class="c">PublicLayout · AppLayout (nav + room switcher)</span>
+│       ├── context/        <span class="c">AuthContext · RoomContext (active room)</span>
+│       ├── hooks/          <span class="c">useAuth · useRoom · useExpenses · useDebounce</span>
+│       ├── services/       <span class="c">axios instance + one module per API resource</span>
+│       └── utils/          <span class="c">money formatting, dates, validators</span>
+├── server/
+│   └── src/
+│       ├── config/         <span class="c">db, env, cors</span>
+│       ├── models/         <span class="c">6 Mongoose schemas</span>
+│       ├── routes/  controllers/  middleware/  validators/
+│       ├── services/
+│       │   ├── calculation/    <span class="k">← pure, heavily tested</span>
+│       │   ├── expense.service.js
+│       │   ├── room.service.js
+│       │   └── settlement.service.js
+│       └── utils/          <span class="c">ApiError, asyncHandler, roomCode generator</span>
+├── docs/                   <span class="c">this document + the spec</span>
+└── README.md
+</pre>
+
+<h3>4.2 &nbsp;Data model at a glance</h3>
+
+<table>
+  <thead><tr><th style="width:22%">Collection</th><th>Key fields</th><th style="width:30%">Indexes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>User</strong></td><td>name, email, passwordHash, avatar, lastLogin</td><td><code>email</code> unique</td></tr>
+    <tr><td><strong>Room</strong></td><td>name, code, owner, <em>members[]</em> {user, role, tags[], joinedAt, leftAt, isActive}, isArchived</td><td><code>code</code> unique; <code>members.user</code></td></tr>
+    <tr><td><strong>Expense</strong></td><td>roomId, createdBy, amount, description, category, date, paidBy[], <strong>shares[]</strong>, splitType, isEdited, isDeleted, receiptUrl</td><td><code>{roomId, isDeleted, date:-1}</code>; text index on description</td></tr>
+    <tr><td><strong>ExpenseRevision</strong></td><td>expenseId, editedBy, previousData, newData, changedFields[], createdAt</td><td><code>{expenseId, createdAt:-1}</code></td></tr>
+    <tr><td><strong>Settlement</strong></td><td>roomId, payer, receiver, amount, status (pending/paid/confirmed), paidAt, confirmedAt</td><td><code>{roomId, status}</code></td></tr>
+    <tr><td><strong>Notification</strong></td><td>userId, roomId, type, message, read, createdAt</td><td><code>{userId, read, createdAt:-1}</code></td></tr>
+  </tbody>
+</table>
+
+<p>Members are embedded in Room (bounded, small, always read together). Expenses are their own collection
+(unbounded, paginated, filtered). Revisions are separate so the expense document stays small no matter how
+many times it is edited.</p>
+
+<h3>4.3 &nbsp;Authorization matrix</h3>
+
+<table>
+  <thead><tr><th>Action</th><th>Member</th><th>Room admin</th><th>Rule enforced in</th></tr></thead>
+  <tbody>
+    <tr><td>Add expense to room</td><td>✓</td><td>✓</td><td><code>requireRoomMember</code></td></tr>
+    <tr><td>Edit an expense</td><td>own only</td><td>own only</td><td><code>expense.service</code> — even admins cannot edit others' expenses (§8)</td></tr>
+    <tr><td>Delete (soft) an expense</td><td>own only</td><td>✓ any</td><td><code>expense.service</code></td></tr>
+    <tr><td>Remove a member, rename room, regenerate code, archive</td><td>✗</td><td>✓</td><td><code>requireRoomAdmin</code></td></tr>
+    <tr><td>Mark settlement paid</td><td>payer only</td><td>payer only</td><td><code>settlement.service</code></td></tr>
+    <tr><td>Confirm settlement received</td><td>receiver only</td><td>receiver only</td><td><code>settlement.service</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="label">Per §31</span>
+  <p>Every one of these is checked on the server from the JWT subject. Room IDs, room codes, member IDs and
+  <code>createdBy</code> values arriving from the client are treated as untrusted input, always.</p>
+</div>
+
+<!-- ============ 5. ROADMAP ============ -->
+<div class="page-break"></div>
+<h2><span class="num">5</span>How We Complete It — 13 Phases</h2>
+
+<p>Each phase ends with something that runs and can be checked. Estimates assume solo part-time work;
+halve them if you are on this full-time. <strong>Total ≈ 7–9 weeks part-time.</strong></p>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 1</span><span class="phase-title">Foundation &amp; architecture</span><span class="phase-est">2–3 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Scaffold <code>client/</code> (Vite + React + Tailwind + Router) and <code>server/</code> (Express).</li>
+      <li>MongoDB Atlas cluster, connection handling with retry, <code>.env.example</code>, config module.</li>
+      <li>Cross-cutting pieces up front: <code>ApiError</code>, <code>asyncHandler</code>, global error middleware,
+      consistent response envelope, CORS, the axios instance with interceptors.</li>
+      <li>Git repo, <code>.gitignore</code>, README skeleton.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — both apps start with one command each, client can hit <code>GET /api/health</code>, and a thrown error anywhere returns the standard JSON error shape.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 2</span><span class="phase-title">Authentication</span><span class="phase-est">3–4 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>User model, bcrypt hashing, register / login / me endpoints, JWT issue + verify middleware.</li>
+      <li>Rate limiting on auth routes; Helmet; input validation.</li>
+      <li>Client: Landing, Login, Register, AuthContext, <code>&lt;ProtectedRoute&gt;</code>, 401 interceptor → redirect.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — you can register, log out, log back in, and a protected page bounces you to login when the token is missing or expired.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 3</span><span class="phase-title">Rooms, codes &amp; membership</span><span class="phase-est">4–5 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Room model with embedded members; collision-safe room-code generator (<code>RM-XXXXXX</code>).</li>
+      <li>Create / join by code / list my rooms / room details / rename / regenerate code / remove member / archive.</li>
+      <li><code>requireRoomMember</code> and <code>requireRoomAdmin</code> middleware.</li>
+      <li>Client: My Rooms, Create Room, Join Room, RoomContext + the room switcher in the nav.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — two accounts land in the same room via a code, a user belongs to several rooms, and switching rooms swaps all on-screen data with no bleed between them.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 4</span><span class="phase-title">Expenses &amp; split resolution</span><span class="phase-est">5–6 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Expense model with the frozen <code>shares[]</code> array (§2.1); paise-integer money handling.</li>
+      <li>Split resolver for all four types + full server-side validation (§3.3).</li>
+      <li>Create / list (paginated, filtered) / detail endpoints.</li>
+      <li>Client: Add Expense form with member selection and tag shortcuts, expense list, expense detail.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — every split type produces shares that sum exactly to the total, and a subset split (the veg dinner case) works end to end.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 5</span><span class="phase-title">Calculation engine</span><span class="phase-est">3–4 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Pure functions: per-member paid, owed, balance; group total; average; difference-from-average.</li>
+      <li>Greedy minimum-cash-flow settlement generator (§3.1).</li>
+      <li><code>GET /api/rooms/:id/summary</code> returning the whole computed picture in one call.</li>
+      <li><strong>Write the unit tests in this phase, not in phase 12.</strong> This is the code most likely to be wrong and least likely to announce it.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — the §5 worked example reproduces exactly, balances always sum to zero across randomised inputs, and paise remainders never go missing.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 6</span><span class="phase-title">Dashboard</span><span class="phase-est">4–5 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Summary cards: total, my spending, average per person, I owe, owed to me.</li>
+      <li>Member comparison table with below/near/above-average indicators (§11).</li>
+      <li>Three Recharts views: spend by member, by category, over time.</li>
+      <li>Recent expenses list, skeleton loaders, empty states.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — the dashboard reconciles with the settlement page to the paise, and a brand-new room shows a helpful empty state rather than zeros.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 7</span><span class="phase-title">Editing, revisions &amp; soft delete</span><span class="phase-est">3–4 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>ExpenseRevision model; edit path writes a revision, re-resolves shares, sets <code>isEdited</code>.</li>
+      <li>Creator-only edit enforced server-side; soft delete with audit fields.</li>
+      <li>Client: Edit Expense, "Edited" badge, revision history drawer showing previous → new, who, when.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — editing ₹500 → ₹650 shows the badge, the history still shows ₹500, dashboards use ₹650, and another user's edit attempt is rejected by the API (not just hidden in the UI).</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 8</span><span class="phase-title">Settlements</span><span class="phase-est">3–4 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Settlement model and endpoints; pending → paid → confirmed lifecycle with the right actor for each step.</li>
+      <li>Settle Up page: you owe / you will receive / suggested settlements, plus settlement history.</li>
+      <li>Confirmed settlements feed back into <code>balance</code> — and never modify expenses (§12).</li>
+    </ul>
+    <div class="done"><b>Done when</b> — recording every suggested settlement drives all balances to zero and the Settle Up page reads "Everyone is settled up 🎉".</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 9</span><span class="phase-title">History, search &amp; filtering</span><span class="phase-est">3 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>History page: filter by date range, member, category, amount, edited, deleted; four sort orders.</li>
+      <li>Server-side pagination throughout; debounced search on description.</li>
+      <li>Supporting compound indexes verified with <code>.explain()</code>.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — a room seeded with 1,000 expenses filters and pages without the browser ever holding more than one page.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 10</span><span class="phase-title">Notifications &amp; optional real-time</span><span class="phase-est">2–3 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Notification model, emitted from the service layer on expense added/edited, member joined, settlement paid.</li>
+      <li>Bell menu with unread count and mark-as-read.</li>
+      <li><em>Optional:</em> Socket.IO room channels so live viewers update without refresh. Emitting from services
+      means this can be added later without restructuring anything (§30).</li>
+    </ul>
+    <div class="done"><b>Done when</b> — adding an expense notifies the other members; if sockets are in, a second browser updates without a refresh.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 11</span><span class="phase-title">Responsive polish &amp; performance</span><span class="phase-est">4–5 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Real mobile layouts — tables become cards, bottom nav, thumb-reachable forms (§22).</li>
+      <li>Splash screen (1–2s, skipped when already loaded), toasts, confirm dialogs, consistent empty states.</li>
+      <li>Lazy-loaded routes, bundle audit, image handling; accessibility pass — labels, focus states, keyboard nav, contrast (§37).</li>
+    </ul>
+    <div class="done"><b>Done when</b> — every page is usable one-handed at 360px wide, and the whole app is navigable by keyboard alone.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 12</span><span class="phase-title">Security hardening &amp; test completion</span><span class="phase-est">3–4 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Deliberate attempt to break your own authorization: edit someone else's expense by ID, read a room you
+      never joined, post an expense naming a non-member. All must fail at the API.</li>
+      <li>NoSQL-injection guards, CORS lockdown, rate limits, Helmet, sanitised error responses.</li>
+      <li>Integration tests over the auth and authorization paths, completing the §35 checklist on top of the phase-5 unit tests.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — every item in §35 has a passing test and no crafted request gets past an authorization check.</div>
+  </div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><span class="phase-num">PHASE 13</span><span class="phase-title">Seed data, docs &amp; deployment</span><span class="phase-est">2–3 days</span></div>
+  <div class="phase-body">
+    <ul>
+      <li>Seed script: demo users, room, expenses, settlements — kept out of production code paths (§34).</li>
+      <li>README with real setup commands; API reference; environment variable table.</li>
+      <li>Deploy client to static hosting, server to a Node host, database on Atlas; production env vars and CORS.</li>
+    </ul>
+    <div class="done"><b>Done when</b> — a stranger can clone the repo and be running locally in under five minutes, and the deployed URL walks the full §43 acceptance workflow.</div>
+  </div>
+</div>
+
+<!-- ============ 6. RISKS / DECISIONS ============ -->
+<div class="page-break"></div>
+<h2><span class="num">6</span>Risks &amp; Open Decisions</h2>
+
+<h3>6.1 &nbsp;Where this project is most likely to go wrong</h3>
+
+<table>
+  <thead><tr><th style="width:30%">Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Floating-point money</strong></td><td>Integer paise everywhere, enforced at the model layer. The single highest-value rule in this document.</td></tr>
+    <tr><td><strong>Recomputing history</strong></td><td>Frozen <code>shares[]</code> (§2.1). If you take one architectural idea from this plan, take this one.</td></tr>
+    <tr><td><strong>Average vs. balance drift</strong></td><td>Drive all money statements from <code>balance</code>; treat the average as a comparison metric only (§2.2).</td></tr>
+    <tr><td><strong>Client-side-only authorization</strong></td><td>Hiding an Edit button is not security. Phase 12 exists specifically to attack this.</td></tr>
+    <tr><td><strong>Scope creep</strong></td><td>§39 is right — this is a ledger, not a social network. Phases 1–8 are the product; 9–13 make it shippable. Anything else is v2.</td></tr>
+    <tr><td><strong>Building the UI before the engine</strong></td><td>Phases are ordered deliberately: data model and money math before dashboards. §40 says the same thing.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 &nbsp;Decisions worth making before phase 1</h3>
+
+<table>
+  <thead><tr><th style="width:34%">Question</th><th>My recommendation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>JavaScript or TypeScript?</strong></td><td>TypeScript, if you are comfortable with it. In an app whose core is money arithmetic, having the compiler check that a share array actually carries <code>{user, amount}</code> pays for itself. If it would slow you down, plain JS with Zod validation at the boundaries is a fine second choice.</td></tr>
+    <tr><td><strong>Refresh tokens?</strong></td><td>Skip for v1. A single access token with a sane expiry and a clean 401 → login redirect meets §14. Add refresh later if session length becomes a real complaint.</td></tr>
+    <tr><td><strong>Socket.IO in v1?</strong></td><td>Optional, per §30. Emit notification events from the service layer from day one; wiring sockets in afterwards then costs about a day.</td></tr>
+    <tr><td><strong>Receipt image uploads?</strong></td><td>Cloudinary free tier. Never store binaries in MongoDB.</td></tr>
+    <tr><td><strong>Multi-currency?</strong></td><td>Not in v1. Fix on ₹ (INR). Retro-fitting currency into a ledger is painful, so if you think you will ever need it, add a <code>currency</code> field to Room now and leave it constant.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.3 &nbsp;Suggested order of work</h3>
+
+<p>Phases 1 → 8 are strictly sequential; each genuinely depends on the one before. From phase 9 onward the order
+is flexible — if you have a demo or submission deadline, do phase 13 (seed data + README + deploy) early so
+there is always something running that you can show, then continue polishing.</p>
+
+<div class="callout">
+  <span class="label">The shortest path to something demonstrable</span>
+  <p>Phases 1 → 5 plus a rough dashboard gives you the complete §43 acceptance workflow in about
+  <strong>2.5 weeks part-time</strong>: register, create a room, join by code, add expenses, see balances and
+  settlements. Everything after that raises quality rather than adding capability — which is the right shape
+  for a project you may need to show before it is finished.</p>
+</div>
+
+<div class="foot">
+  RoomMates — Project Understanding &amp; Build Plan · Prepared 2 September 2026 ·
+  Section references (§) point to the project specification in <code>docs/PROJECT_SPEC.md</code>.
+</div>
+
+</body>
+</html>

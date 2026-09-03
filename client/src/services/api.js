@@ -42,9 +42,20 @@ api.interceptors.response.use(
       normalised.message = payload?.message ?? 'Something went wrong. Please try again.';
       normalised.details = payload?.details;
 
-      // The session is gone — drop the stale token. Phase 2 adds the redirect.
-      if (error.response.status === 401) {
+      // A 401 from a sign-in attempt means "wrong password" — the user is
+      // already on the login page and there is no session to clear. A 401 from
+      // anywhere else means the session died, so drop the token and send them
+      // to sign in again. Treating these the same would bounce the login page
+      // to itself on every failed attempt.
+      const requestUrl = error.config?.url ?? '';
+      const isSignInAttempt =
+        requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
+
+      if (error.response.status === 401 && !isSignInAttempt) {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
+        if (window.location.pathname !== '/login') {
+          window.location.assign('/login');
+        }
       }
     } else if (error.code === 'ECONNABORTED') {
       normalised.status = 0;
